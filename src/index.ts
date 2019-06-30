@@ -18,7 +18,7 @@ const slugify = (url: string) => {
 };
 
 const imageFileRegex = /\.(png|dat|mmdb|jpg)$/;
-const scrapyWpContent = async (page: puppeteer.Page, url: string) => {
+const scrapyWpContent = async (page: puppeteer.Page, url: string, hostname: string) => {
   if (alreadyVisited.includes(url)) {
     console.log('alreadyVisited: ', url);
     return [];
@@ -49,9 +49,29 @@ const scrapyWpContent = async (page: puppeteer.Page, url: string) => {
 
   const newUrls = validLinks
     .filter(link => !alreadyVisited.includes(link))
-    .filter(link => !imageFileRegex.test(link));
+    .filter(link => !imageFileRegex.test(link))
+    .filter(link => link.includes(hostname));
 
   return newUrls;
+};
+
+const extractHostname = (url: string) => {
+    let hostname;
+    //find & remove protocol (http, ftp, etc.) and get hostname
+
+    if (url.indexOf("//") > -1) {
+        hostname = url.split('/')[2];
+    }
+    else {
+        hostname = url.split('/')[0];
+    }
+
+    //find & remove port number
+    hostname = hostname.split(':')[0];
+    //find & remove "?"
+    hostname = hostname.split('?')[0];
+
+    return hostname;
 };
 
 (async () => {
@@ -65,6 +85,7 @@ const scrapyWpContent = async (page: puppeteer.Page, url: string) => {
   const page = await browser.newPage();
 
   const baseUrl = process.argv[3];
+  const hostname = extractHostname(baseUrl);
   urlsToScrapy = [baseUrl];
 
   await page.goto(baseUrl);
@@ -75,7 +96,7 @@ const scrapyWpContent = async (page: puppeteer.Page, url: string) => {
     const otherUrls = urlsToScrapy.length > 1 ? urlsToScrapy.slice(1) : [];
 
     try {
-      const newUrls = await scrapyWpContent(page, url);
+      const newUrls = await scrapyWpContent(page, url, hostname);
 
       urlsToScrapy = [...new Set([...(otherUrls || []), ...newUrls])];
     } catch (err) {
